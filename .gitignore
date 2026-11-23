@@ -1,0 +1,11 @@
+# Runtime data
+*.log
+positions.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
