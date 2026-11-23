@@ -1,0 +1,47 @@
+groups:
+  - name: host-alerts
+    rules:
+      - alert: HostHighCpuLoad
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU load on {{ $labels.instance }} ({{ $value | printf \"%.1f\" }}%)"
+          runbook: "1. top / htop to find the process  2. Check for runaway cron jobs  3. Review recent deployments"
+
+      - alert: HostOutOfMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host {{ $labels.instance }} has less than 10% memory available"
+          runbook: "1. Identify top consumers: ps aux --sort=-%mem | head  2. Check for memory leaks  3. Restart offending service if safe"
+
+      - alert: HostOutOfDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"} / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host {{ $labels.instance }} has less than 10% disk space on /"
+          runbook: "1. Check /var/log growth  2. Verify log rotation is working  3. Clean docker images: docker system prune"
+
+      - alert: HostDiskWillFillIn24Hours
+        expr: predict_linear(node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}[6h], 24 * 3600) < 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk on {{ $labels.instance }} predicted to fill within 24h at current growth rate"
+          runbook: "1. Check what is growing: du -sh /var/* | sort -h  2. Archive or rotate before it becomes a page"
+
+      - alert: HostNodeDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Node exporter on {{ $labels.instance }} is unreachable"
+          runbook: "1. Ping the host  2. Check node-exporter service status  3. If host is down, follow host-recovery runbook"
