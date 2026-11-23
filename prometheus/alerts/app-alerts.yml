@@ -1,0 +1,37 @@
+groups:
+  - name: application-alerts
+    rules:
+      # Symptom-based alerting: page on what users feel, not on internal noise.
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+            /
+          sum(rate(http_requests_total[5m])) by (service)
+            > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.service }} error rate above 5% for 5 minutes"
+          runbook: "1. Check recent deploys — rollback if correlated  2. Check downstream dependencies  3. Inspect logs in Loki: {service=\"{{ $labels.service }}\"} |= \"ERROR\""
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          ) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} p95 latency above 1s"
+          runbook: "1. Check DB slow queries  2. Check CPU throttling on the pod  3. Compare with last deploy time"
+
+      - alert: TargetMissing
+        expr: up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} is down"
+          runbook: "1. Is the service actually down or just the metrics endpoint?  2. Check service health endpoint  3. Check network policy / firewall changes"
