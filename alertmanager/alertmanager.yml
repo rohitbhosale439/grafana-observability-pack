@@ -1,0 +1,38 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # Critical alerts: short repeat interval — these represent user impact.
+    - matchers:
+        - severity = "critical"
+      receiver: critical
+      repeat_interval: 1h
+
+# Inhibition: if a host is down, suppress its individual resource alerts —
+# one page about the real problem beats ten pages about its symptoms.
+inhibit_rules:
+  - source_matchers:
+      - alertname = "HostNodeDown"
+    target_matchers:
+      - severity = "warning"
+    equal: [instance]
+
+receivers:
+  - name: default
+    # Replace with your Slack / Teams / email receiver, e.g.:
+    # slack_configs:
+    #   - api_url: https://hooks.slack.com/services/XXX/YYY/ZZZ
+    #     channel: "#alerts"
+    #     title: '{{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.runbook }}{{ end }}'
+
+  - name: critical
+    # Route to PagerDuty / Opsgenie for paging, e.g.:
+    # pagerduty_configs:
+    #   - routing_key: <your-integration-key>
